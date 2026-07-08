@@ -1,0 +1,179 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="新規トレード記録投稿">
+  <div class="post-container">
+    <h1>新規トレード記録の追加</h1>
+
+    <div class="form-section">
+      <label for="postTitle">タイトル</label>
+      <input type="text" id="postTitle" placeholder="例: GOLD(XAUUSD) 1分足：EMA45反発からのショート" />
+    </div>
+
+    <div class="form-section">
+      <label for="postDate">日付</label>
+      <input type="date" id="postDate" />
+    </div>
+
+    <div class="form-section">
+      <label for="postPips">Pips</label>
+      <input type="text" id="postPips" placeholder="例: +25.5 pips" />
+    </div>
+
+    <div class="form-section">
+      <label>結果</label>
+      <div class="result-options">
+        <label><input type="radio" name="result" value="win" checked /> Win</label>
+        <label><input type="radio" name="result" value="loss" /> Loss</label>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <label>チャート画像</label>
+      <div class="image-upload-area" id="dropArea">
+        <p>画像をここにドラッグ＆ドロップ、または<span class="clipboard-hint">クリップボードから貼り付け (Ctrl+V)</span></p>
+        <input type="file" id="imageFile" accept="image/*" />
+        <img id="imagePreview" src="#" alt="プレビュー" class="hidden" />
+      </div>
+    </div>
+
+    <div class="form-section">
+      <label for="postComment">コメント・振り返り</label>
+      <textarea id="postComment" rows="10" placeholder="環境認識、エントリー根拠、反省点などを自由に記入してください..."></textarea>
+    </div>
+
+    <button id="savePost" class="save-button">Markdownを生成</button>
+
+    <div class="form-section result-section hidden" id="resultArea">
+      <h2>生成されたMarkdownコード</h2>
+      <p class="description">このコードをコピーして、`src/pages/posts/yyyy-mm-dd-title.md` として保存してください。</p>
+      <textarea id="markdownResult" rows="15" readonly></textarea>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  const dateInput = document.getElementById('postDate');
+  const today = new Date().toISOString().split('T')[0];
+  if (dateInput) dateInput.value = today;
+
+  const dropArea = document.getElementById('dropArea');
+  const imagePreview = document.getElementById('imagePreview');
+  const imageFileInput = document.getElementById('imageFile');
+  const markdownResultArea = document.getElementById('resultArea');
+  const markdownResultText = document.getElementById('markdownResult');
+
+  if (dropArea && imagePreview && imageFileInput && markdownResultArea && markdownResultText) {
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      dropArea.addEventListener(eventName, preventDefaults, false);
+    });
+    function preventDefaults(e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropArea.addEventListener(eventName, () => dropArea.classList.add('highlight'), false);
+    });
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropArea.addEventListener(eventName, () => dropArea.classList.remove('highlight'), false);
+    });
+
+    dropArea.addEventListener('drop', handleDrop, false);
+    function handleDrop(e) {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      handleFiles(files);
+    }
+
+    window.addEventListener('paste', e => {
+      if (e.clipboardData && e.clipboardData.files.length > 0) {
+        handleFiles(e.clipboardData.files);
+      }
+    });
+
+    imageFileInput.addEventListener('change', () => {
+      if (imageFileInput.files) handleFiles(imageFileInput.files);
+    });
+
+    function handleFiles(files) {
+      const file = files[0];
+      if (file && file.type.match('image.*')) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          if (e.target && typeof e.target.result === 'string') {
+            imagePreview.src = e.target.result;
+            imagePreview.classList.remove('hidden');
+            const pText = dropArea.querySelector('p');
+            if (pText) pText.classList.add('hidden');
+          }
+        }
+        reader.readAsDataURL(file);
+      }
+    }
+
+    const saveButton = document.getElementById('savePost');
+    if (saveButton) {
+      saveButton.addEventListener('click', () => {
+        const title = document.getElementById('postTitle').value;
+        const date = dateInput.value;
+        const pips = document.getElementById('postPips').value;
+        const resultRadio = document.querySelector('input[name="result"]:checked');
+        const result = resultRadio ? resultRadio.value : 'win';
+        const comment = document.getElementById('postComment').value;
+        const imageBase64 = imagePreview.src;
+
+        let markdown = `---\nlayout: "../../layouts/Layout.astro"\ntitle: "${title}"\ndate: "${date}"\npips: "${pips}"\nresult: "${result}"\n---\n\n`;
+
+        if (imageBase64 && imageBase64 !== window.location.href && !imageBase64.endsWith('#')) {
+          markdown += `## 📊 チャート画像\n<img src="${imageBase64}" alt="チャート画像" style="max-width: 100%; border-radius: 8px;" />\n\n`;
+        }
+
+        markdown += `## 💬 トレード解説・反省点\n\n${comment}\n`;
+
+        markdownResultText.value = markdown;
+        markdownResultArea.classList.remove('hidden');
+        markdownResultText.focus();
+      });
+    }
+  }
+</script>
+
+<style>
+  .post-container { max-width: 700px; margin: 0 auto; padding: 20px; }
+  h1 { font-size: 1.8rem; margin-bottom: 30px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+  
+  .form-section { margin-bottom: 20px; }
+  .form-section label { display: block; font-weight: bold; margin-bottom: 8px; color: var(--text-color); }
+  
+  input[type="text"], input[type="date"], textarea {
+    width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 6px;
+    background-color: #0f172a; color: var(--text-color); font-size: 1rem; box-sizing: border-box;
+  }
+  input[type="date"] { cursor: pointer; color-scheme: dark; }
+
+  .result-options { display: flex; gap: 20px; align-items: center; }
+  .result-options label { font-weight: normal; margin-bottom: 0; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+
+  .image-upload-area {
+    width: 100%; height: 200px; border: 2px dashed var(--border); border-radius: 8px;
+    background-color: #1a2336; display: flex; flex-direction: column; justify-content: center; align-items: center;
+    cursor: pointer; position: relative; transition: border-color 0.15s;
+  }
+  .image-upload-area:hover, .image-upload-area.highlight { border-color: var(--accent); }
+  .image-upload-area p { color: var(--text-muted); font-size: 0.9rem; pointer-events: none; }
+  .image-upload-area input[type="file"] { position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+  .clipboard-hint { font-weight: bold; color: var(--accent); }
+  
+  #imagePreview { max-height: 100%; max-width: 100%; border-radius: 6px; position: absolute; object-fit: contain; }
+  .hidden { display: none; }
+
+  .save-button {
+    background-color: var(--accent); color: white; border: none; padding: 12px 24px;
+    border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: opacity 0.15s;
+  }
+  .save-button:hover { opacity: 0.8; }
+
+  .result-section h2 { margin-top: 30px; font-size: 1.4rem; color: #fff; }
+  .result-section .description { color: var(--text-muted); font-size: 0.9rem; margin-top: 0; margin-bottom: 10px; }
+</style>
