@@ -54,41 +54,46 @@ import Layout from '../layouts/Layout.astro';
 </Layout>
 
 <script>
-  const dateInput = document.getElementById('postDate');
-  const today = new Date().toISOString().split('T')[0];
-  if (dateInput) dateInput.value = today;
-
+  // 要素の取得と存在チェックを一括で行う
+  const dateInput = document.getElementById('postDate') as HTMLInputElement | null;
   const dropArea = document.getElementById('dropArea');
-  const imagePreview = document.getElementById('imagePreview');
-  const imageFileInput = document.getElementById('imageFile');
+  const imagePreview = document.getElementById('imagePreview') as HTMLImageElement | null;
+  const imageFileInput = document.getElementById('imageFile') as HTMLInputElement | null;
   const markdownResultArea = document.getElementById('resultArea');
-  const markdownResultText = document.getElementById('markdownResult');
+  const markdownResultText = document.getElementById('markdownResult') as HTMLTextAreaElement | null;
+  const saveButton = document.getElementById('savePost');
 
-  if (dropArea && imagePreview && imageFileInput && markdownResultArea && markdownResultText) {
+  // 今日を入れる
+  if (dateInput) {
+    dateInput.value = new Date().toISOString().split('T')[0];
+  }
+
+  if (dropArea && imagePreview && imageFileInput && markdownResultArea && markdownResultText && saveButton) {
+    
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-      dropArea.addEventListener(eventName, preventDefaults, false);
+      dropArea.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }, false);
     });
-    function preventDefaults(e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
+
     ['dragenter', 'dragover'].forEach(eventName => {
       dropArea.addEventListener(eventName, () => dropArea.classList.add('highlight'), false);
     });
+
     ['dragleave', 'drop'].forEach(eventName => {
       dropArea.addEventListener(eventName, () => dropArea.classList.remove('highlight'), false);
     });
 
-    dropArea.addEventListener('drop', handleDrop, false);
-    function handleDrop(e) {
-      const dt = e.dataTransfer;
-      const files = dt.files;
-      handleFiles(files);
-    }
+    dropArea.addEventListener('drop', (e) => {
+      const dt = (e as DragEvent).dataTransfer;
+      if (dt && dt.files) handleFiles(dt.files);
+    }, false);
 
-    window.addEventListener('paste', e => {
-      if (e.clipboardData && e.clipboardData.files.length > 0) {
-        handleFiles(e.clipboardData.files);
+    window.addEventListener('paste', (e) => {
+      const clipboard = (e as ClipboardEvent).clipboardData;
+      if (clipboard && clipboard.files.length > 0) {
+        handleFiles(clipboard.files);
       }
     });
 
@@ -96,13 +101,13 @@ import Layout from '../layouts/Layout.astro';
       if (imageFileInput.files) handleFiles(imageFileInput.files);
     });
 
-    function handleFiles(files) {
+    function handleFiles(files: FileList) {
       const file = files[0];
       if (file && file.type.match('image.*')) {
         const reader = new FileReader();
-        reader.onload = function(e) {
-          if (e.target && typeof e.target.result === 'string') {
-            imagePreview.src = e.target.result;
+        reader.onload = function(event) {
+          if (event.target && typeof event.target.result === 'string' && imagePreview && dropArea) {
+            imagePreview.src = event.target.result;
             imagePreview.classList.remove('hidden');
             const pText = dropArea.querySelector('p');
             if (pText) pText.classList.add('hidden');
@@ -112,30 +117,30 @@ import Layout from '../layouts/Layout.astro';
       }
     }
 
-    const saveButton = document.getElementById('savePost');
-    if (saveButton) {
-      saveButton.addEventListener('click', () => {
-        const title = document.getElementById('postTitle').value;
-        const date = dateInput.value;
-        const pips = document.getElementById('postPips').value;
-        const resultRadio = document.querySelector('input[name="result"]:checked');
-        const result = resultRadio ? resultRadio.value : 'win';
-        const comment = document.getElementById('postComment').value;
-        const imageBase64 = imagePreview.src;
+    saveButton.addEventListener('click', () => {
+      const titleEl = document.getElementById('postTitle') as HTMLInputElement | null;
+      const commentEl = document.getElementById('postComment') as HTMLTextAreaElement | null;
+      const resultRadio = document.querySelector('input[name="result"]:checked') as HTMLInputElement | null;
 
-        let markdown = `---\nlayout: "../../layouts/Layout.astro"\ntitle: "${title}"\ndate: "${date}"\npips: "${pips}"\nresult: "${result}"\n---\n\n`;
+      const title = titleEl ? titleEl.value : '';
+      const date = dateInput ? dateInput.value : '';
+      const pips = (document.getElementById('postPips') as HTMLInputElement | null)?.value || '';
+      const result = resultRadio ? resultRadio.value : 'win';
+      const comment = commentEl ? commentEl.value : '';
+      const imageBase64 = imagePreview.src;
 
-        if (imageBase64 && imageBase64 !== window.location.href && !imageBase64.endsWith('#')) {
-          markdown += `## 📊 チャート画像\n<img src="${imageBase64}" alt="チャート画像" style="max-width: 100%; border-radius: 8px;" />\n\n`;
-        }
+      let markdown = `---\nlayout: "../../layouts/Layout.astro"\ntitle: "${title}"\ndate: "${date}"\ntips: "${pips}"\nresult: "${result}"\n---\n\n`;
 
-        markdown += `## 💬 トレード解説・反省点\n\n${comment}\n`;
+      if (imageBase64 && imageBase64 !== window.location.href && !imageBase64.endsWith('#')) {
+        markdown += `## 📊 チャート画像\n<img src="${imageBase64}" alt="チャート画像" style="max-width: 100%; border-radius: 8px;" />\n\n`;
+      }
 
-        markdownResultText.value = markdown;
-        markdownResultArea.classList.remove('hidden');
-        markdownResultText.focus();
-      });
-    }
+      markdown += `## 💬 トレード解説・反省点\n\n${comment}\n`;
+
+      markdownResultText.value = markdown;
+      markdownResultArea.classList.remove('hidden');
+      markdownResultText.focus();
+    });
   }
 </script>
 
